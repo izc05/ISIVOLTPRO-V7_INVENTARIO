@@ -699,7 +699,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
 <div class="modal" id="modal-tool">
   <div class="modal-box">
     <div class="modal-title">
-      <span>📦 Añadir Material</span>
+      <span id="tool-modal-title">📦 Añadir Material</span>
       <button class="modal-close" onclick="closeModal('modal-tool')">✕</button>
     </div>
     <div class="form-group"><label>Nombre *</label><input id="t-name" placeholder="Ej: Taladro Bosch"></div>
@@ -715,7 +715,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
     <div class="form-group"><label>Ubicación</label><input id="t-loc" placeholder="Ej: Almacén A - Estante 3"></div>
     <div class="form-group"><label>Descripción</label><input id="t-desc" placeholder="Detalles adicionales"></div>
     <div class="form-group"><label>Foto (opcional)</label><input id="t-photo" type="file" accept="image/*"></div>
-    <button class="btn btn-primary btn-full" onclick="saveTool()">💾 Guardar Material</button>
+    <button class="btn btn-primary btn-full" id="tool-save-btn" onclick="saveTool()">💾 Guardar Material</button>
   </div>
 </div>
 
@@ -798,6 +798,7 @@ function closeModal(id){
   const m=document.getElementById(id);
   if(!m) return;
   m.classList.remove('active');
+  if(id==='modal-tool') resetToolForm();
 }
 // Cerrar modal al clicar fuera de la caja o pulsar ESC
 document.addEventListener('click',(e)=>{
@@ -816,6 +817,7 @@ document.addEventListener('keydown',(e)=>{
 let tools   = JSON.parse(localStorage.getItem('iv_tools')   || '[]');
 let workers = JSON.parse(localStorage.getItem('iv_workers') || '[]');
 let history = JSON.parse(localStorage.getItem('iv_history') || '[]');
+let editingToolId = null;
 
 function save(){
   localStorage.setItem('iv_tools',   JSON.stringify(tools));
@@ -1477,6 +1479,7 @@ function renderTools(){
       <div class="tool-photo-wrap">${t.photo ? `<img class="tool-photo" src="${t.photo}" alt="Foto de ${t.name}" loading="lazy">` : '<div class="tool-photo-empty">📷 Sin foto</div>'}</div>
       <div class="action-row">
         <button class="btn btn-ghost btn-sm" onclick="showQR('tool','${t.id}')">📱 QR</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditTool('${t.id}')">✏️ Editar</button>
         ${t.status==='available'
           ?`<button class="btn btn-danger btn-sm" onclick="openMovementModal(tools.find(x=>x.id==='${t.id}'))">📤 Prestar</button>`
           :`<button class="btn btn-success btn-sm" onclick="doCheckin('${t.id}')">📥 Devolver</button>`}
@@ -1495,26 +1498,80 @@ function quickFilterTools(mode){
   showNotif(mode==='out'?'Mostrando: En uso':(mode==='available'?'Mostrando: Disponibles':'Mostrando: Todos'),'success');
 }
 
-function openAddTool(){ document.getElementById('modal-tool').classList.add('active'); }
+function resetToolForm(){
+  editingToolId = null;
+  ['t-name','t-code','t-loc','t-desc','t-photo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('t-cat').value='';
+  const title=document.getElementById('tool-modal-title');
+  const btn=document.getElementById('tool-save-btn');
+  if(title) title.textContent='📦 Añadir Material';
+  if(btn) btn.textContent='💾 Guardar Material';
+}
+
+function openAddTool(){
+  resetToolForm();
+  document.getElementById('modal-tool').classList.add('active');
+}
+
+function openEditTool(id){
+  const tool=tools.find(t=>t.id===id);
+  if(!tool){ showNotif('Material no encontrado','error'); return; }
+  editingToolId=id;
+  document.getElementById('t-name').value=tool.name||'';
+  document.getElementById('t-code').value=tool.code||'';
+  document.getElementById('t-cat').value=tool.category||'';
+  document.getElementById('t-loc').value=tool.location||'';
+  document.getElementById('t-desc').value=tool.description||'';
+  document.getElementById('t-photo').value='';
+  const title=document.getElementById('tool-modal-title');
+  const btn=document.getElementById('tool-save-btn');
+  if(title) title.textContent='✏️ Editar Material';
+  if(btn) btn.textContent='💾 Guardar Cambios';
+  document.getElementById('modal-tool').classList.add('active');
+}
+
 async function saveTool(){
   const name=document.getElementById('t-name').value.trim();
   const code=document.getElementById('t-code').value.trim();
   if(!name||!code){ showNotif('Nombre y Código son obligatorios','error'); return; }
+
   const photoFile = document.getElementById('t-photo')?.files?.[0] || null;
   let photo='';
   if(photoFile){
     try{ photo = await fileToDataURL(photoFile); }
     catch(e){ showNotif('No se pudo leer la foto seleccionada','warning','⚠️'); }
   }
+
+  if(editingToolId){
+    const idx=tools.findIndex(t=>t.id===editingToolId);
+    if(idx===-1){ showNotif('Material no encontrado','error'); return; }
+    const current=tools[idx];
+    tools[idx]={
+      ...current,
+      name,
+      code,
+      category:document.getElementById('t-cat').value,
+      location:document.getElementById('t-loc').value.trim(),
+      description:document.getElementById('t-desc').value.trim(),
+      photo: photo || current.photo || ''
+    };
+    save(); closeModal('modal-tool'); renderTools(); renderDashboard();
+    resetToolForm();
+    playSound('save');
+    showNotif('Material actualizado','success','✏️',photo?'Datos y foto actualizados':'Cambios guardados');
+    return;
+  }
+
   tools.push({id:'t'+Date.now(),name,code,category:document.getElementById('t-cat').value,location:document.getElementById('t-loc').value.trim(),description:document.getElementById('t-desc').value.trim(),photo,status:'available',assignedTo:null});
   save(); closeModal('modal-tool'); renderTools(); renderDashboard();
-  ['t-name','t-code','t-loc','t-desc','t-photo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  document.getElementById('t-cat').value='';
+  resetToolForm();
   playSound('save');
   showNotif('Material añadido al inventario','success','📦',photo?'Foto guardada correctamente':'Disponible para asignar');
 }
 function deleteTool(id){
-  if(!confirm('¿Eliminar este material?')) return;
+  const tool=tools.find(t=>t.id===id);
+  const name=tool?` "${tool.name}"`:'';
+  if(!confirm(`⚠️ Esta acción borrará el material${name} de forma permanente. ¿Deseas continuar?`)) return;
   tools=tools.filter(t=>t.id!==id); save(); renderTools(); renderDashboard();
 }
 
@@ -1559,7 +1616,9 @@ function saveWorker(){
   showNotif('Personal registrado','success','👷','Ya puede usar el sistema');
 }
 function deleteWorker(id){
-  if(!confirm('¿Eliminar este trabajador?')) return;
+  const worker=workers.find(w=>w.id===id);
+  const name=worker?` "${worker.name}"`:'';
+  if(!confirm(`⚠️ Esta acción borrará el trabajador${name}. ¿Deseas continuar?`)) return;
   workers=workers.filter(w=>w.id!==id); save(); renderWorkers(); renderDashboard();
 }
 
@@ -2212,6 +2271,7 @@ async function importBackupJSON(){
 
 function undoLastMovement(){
   if(!history.length){ showNotif('No hay movimientos para deshacer','warning'); return; }
+  if(!confirm('⚠️ Se deshará el último movimiento registrado. ¿Continuar?')) return;
   const last = history[0];
   const tool = tools.find(t=>t.id===last.toolId);
   if(tool){

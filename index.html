@@ -2170,47 +2170,20 @@ function downloadApp(){
 // INIT
 // ════════════════════════════════
 
-// ── PWA (instalable) ───────────────────────────────────────────────────────
-(function(){
-  try{
-    // Manifest dinámico (sin archivos extra)
-    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e3c72"/><stop offset="1" stop-color="#2a5298"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#g)"/><text x="50%" y="56%" text-anchor="middle" font-size="260" font-family="Arial" fill="#fff">⚡</text></svg>`;
-    const iconData = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgIcon);
-
-    const manifest = {
-      name: "IsiVoltPro",
-      short_name: "IsiVoltPro",
-      start_url: "./",
-      scope: "./",
-      display: "standalone",
-      background_color: "#0b1a33",
-      theme_color: "#1e3c72",
-      icons: [
-        { src: iconData, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
-      ]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
-    const manifestURL = URL.createObjectURL(manifestBlob);
-    const link = document.createElement("link");
-    link.rel = "manifest";
-    link.href = manifestURL;
-    link.id = "isivolt_manifest";
-    document.head.appendChild(link);
-
-    // Service Worker en blob (cache básico offline)
-    if("serviceWorker" in navigator){
-      const swCode = `
-        const CACHE = "isivoltpro-cache-v1";
-        self.addEventListener("install", (e)=>{
-          e.waitUntil(
 // ────────────────────────────────────────────────────────────────────────────
 // AUTH (PIN) + GOOGLE (opcional)
 // ────────────────────────────────────────────────────────────────────────────
+const MAX_PIN_ATTEMPTS = 5;
+const LOCKOUT_MS = 30_000;
+let pinFails = 0;
+let pinLockUntil = 0;
+
 function getSettings(){
   try{
     const s = JSON.parse(localStorage.getItem('isivolt_settings')||'{}');
     if(!s || typeof s!=='object') return { appPin:'1234' };
     if(!s.appPin) s.appPin='1234';
+    s.appPin = String(s.appPin).replace(/\D/g,'').slice(0,8) || '1234';
     return s;
   }catch(e){ return { appPin:'1234' }; }
 }
@@ -2234,17 +2207,42 @@ function setPinMsg(msg,isErr=false){
   el.textContent = msg||'';
   el.className = 'auth-msg' + (isErr?' err':'');
 }
+function getLockSecondsLeft(){
+  return Math.max(0, Math.ceil((pinLockUntil - Date.now())/1000));
+}
 function submitPin(){
-  const pin=(document.getElementById('pinInput')?.value||'').trim();
+  const pinInput=document.getElementById('pinInput');
+  if(!pinInput) return;
+  pinInput.value = pinInput.value.replace(/\D/g,'').slice(0,8);
+  const pin=(pinInput.value||'').trim();
   const settings=getSettings();
-  if(!pin){ setPinMsg('Introduce el PIN.', true); return; }
+
+  const left = getLockSecondsLeft();
+  if(left>0){
+    setPinMsg(`Demasiados intentos. Espera ${left}s.`, true);
+    return;
+  }
+
+  if(pin.length < 4){ setPinMsg('El PIN debe tener al menos 4 números.', true); return; }
+
   if(pin === String(settings.appPin)){
+    pinFails = 0;
+    pinLockUntil = 0;
     sessionStorage.setItem('auth_ok','1');
     hideAuth();
     setPinMsg('');
     try{ document.dispatchEvent(new Event('isivolt:auth')); }catch(e){}
   }else{
-    setPinMsg('PIN incorrecto.', true);
+    pinFails += 1;
+    const leftAttempts = Math.max(0, MAX_PIN_ATTEMPTS - pinFails);
+    if(pinFails >= MAX_PIN_ATTEMPTS){
+      pinLockUntil = Date.now() + LOCKOUT_MS;
+      pinFails = 0;
+      setPinMsg(`PIN bloqueado por seguridad. Intenta de nuevo en ${Math.ceil(LOCKOUT_MS/1000)}s.`, true);
+    }else{
+      setPinMsg(`PIN incorrecto. Intentos restantes: ${leftAttempts}.`, true);
+    }
+    pinInput.select();
     try{ playSound && playSound('error'); }catch(e){}
   }
 }
@@ -2261,6 +2259,7 @@ async function waitForAuth(){
   // Enter para enviar
   const pinInput=document.getElementById('pinInput');
   if(pinInput){
+    pinInput.addEventListener('input',()=>{ pinInput.value = pinInput.value.replace(/\D/g,'').slice(0,8); });
     pinInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ submitPin(); } });
   }
 
@@ -2327,9 +2326,39 @@ function promptGoogle(){
   }
 }
 
+// ── PWA (instalable) ───────────────────────────────────────────────────────
+(function(){
+  try{
+    // Manifest dinámico (sin archivos extra)
+    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e3c72"/><stop offset="1" stop-color="#2a5298"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#g)"/><text x="50%" y="56%" text-anchor="middle" font-size="260" font-family="Arial" fill="#fff">⚡</text></svg>`;
+    const iconData = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgIcon);
 
-(async ()=>{
-  await waitForAuth();
+    const manifest = {
+      name: "IsiVoltPro",
+      short_name: "IsiVoltPro",
+      start_url: "./",
+      scope: "./",
+      display: "standalone",
+      background_color: "#0b1a33",
+      theme_color: "#1e3c72",
+      icons: [
+        { src: iconData, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
+      ]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
+    const manifestURL = URL.createObjectURL(manifestBlob);
+    const link = document.createElement("link");
+    link.rel = "manifest";
+    link.href = manifestURL;
+    link.id = "isivolt_manifest";
+    document.head.appendChild(link);
+
+    // Service Worker en blob (cache básico offline)
+    if("serviceWorker" in navigator){
+      const swCode = `
+        const CACHE = "isivoltpro-cache-v1";
+        self.addEventListener("install", (e)=>{
+          e.waitUntil((async ()=>{
             const cache = await caches.open(CACHE);
             // cachea la página principal
             await cache.addAll(["./"]);
@@ -2355,7 +2384,6 @@ function promptGoogle(){
               const fresh = await fetch(req);
               // cachear recursos same-origin y CDNs usados (mejora offline)
               try{
-                const url = new URL(req.url);
                 const ok = fresh && fresh.status===200;
                 if(ok){
                   await cache.put(req, fresh.clone());
@@ -2375,6 +2403,10 @@ function promptGoogle(){
       navigator.serviceWorker.register(swURL, {scope:"./"}).catch(()=>{});
     }
   }catch(e){}
+})();
+
+(async ()=>{
+  await waitForAuth();
 })();
 
 

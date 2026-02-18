@@ -182,6 +182,9 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
 /* ── MATERIALES ── */
 .tool-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid #27ae60}
 .tool-card.out{border-left-color:#e74c3c}
+.tool-photo-wrap{margin:10px 0 2px}
+.tool-photo{width:100%;max-height:190px;object-fit:cover;border-radius:10px;border:1px solid #e5e7eb;background:#f8fafc}
+.tool-photo-empty{width:100%;height:120px;border-radius:10px;border:1px dashed #d5deea;background:#f8fbff;color:#7a879a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
 .tool-name{font-weight:700;font-size:15px;color:#1a1a2e;margin-bottom:4px}
 .tool-meta{font-size:12px;color:#777;display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .tool-meta span{display:flex;align-items:center;gap:3px}
@@ -341,6 +344,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
 .auth-msg{ min-height:20px; margin-top:10px; font-size:13px; opacity:.95; }
 .auth-msg.err{ color:#fecaca; }
 .auth-hint{ margin-top:12px; font-size:12px; opacity:.85; line-height:1.35; }
+.settings-grid{display:grid;grid-template-columns:1fr;gap:12px}
 
 </style>
 </head>
@@ -363,7 +367,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
     <div id="pinMsg" class="auth-msg"></div>
 
     <div class="auth-hint">
-      Consejo: si es la primera vez, el PIN por defecto es <b>1234</b>. Puedes cambiarlo en Panel → Configuración.
+      Consejo: si es la primera vez, el PIN por defecto es <b>1234</b>. Puedes cambiarlo en Panel → Ajustes.
     </div>
   </div>
 </div>
@@ -404,6 +408,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
   <button class="tab" onclick="switchTab('tools',this)">📦 Materiales</button>
   <button class="tab" onclick="switchTab('workers',this)">👷 Personal</button>
   <button class="tab" onclick="switchTab('history',this)">📋 Historial</button>
+  <button class="tab" onclick="switchTab('settings',this)">⚙️ Ajustes</button>
 </div>
 
 <div class="content">
@@ -528,6 +533,9 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
     <button class="qa-btn" onclick="undoLastMovement()">
       <span class="qa-icon">↩️</span>Deshacer
     </button>
+    <button class="qa-btn" onclick="openSettingsSecurity()">
+      <span class="qa-icon">⚙️</span>Ajustes PIN
+    </button>
   </div>
 </div>
 
@@ -634,6 +642,48 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
   <div id="history-list"></div>
 </div>
 
+
+
+<!-- ═══════════════ AJUSTES ═══════════════ -->
+<div id="tab-settings" class="tab-content">
+  <div class="card">
+    <div class="card-title">🔐 Seguridad</div>
+    <div class="settings-grid">
+      <div class="form-group">
+        <label>PIN actual</label>
+        <input id="set-pin-current" type="password" inputmode="numeric" maxlength="8" placeholder="Introduce tu PIN actual">
+      </div>
+      <div class="form-group">
+        <label>Nuevo PIN (4 a 8 números)</label>
+        <input id="set-pin-new" type="password" inputmode="numeric" maxlength="8" placeholder="Ej: 2580">
+      </div>
+      <div class="form-group">
+        <label>Confirmar nuevo PIN</label>
+        <input id="set-pin-confirm" type="password" inputmode="numeric" maxlength="8" placeholder="Repite el nuevo PIN">
+      </div>
+      <button class="btn btn-primary" onclick="changeAppPin()">🔐 Cambiar PIN de entrada</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🛟 Copia y restauración</div>
+    <div style="font-size:13px;color:#586174;line-height:1.45;margin-bottom:12px">
+      Recomendación: crea una copia después de cambios importantes y guárdala en Drive/OneDrive para poder recuperar la app si se borra el navegador o el teléfono.
+    </div>
+    <div class="qa-grid">
+      <button class="qa-btn" onclick="exportBackupJSON()"><span class="qa-icon">⬇️</span>Crear copia JSON</button>
+      <button class="qa-btn" onclick="openImportModal()"><span class="qa-icon">📥</span>Restaurar copia</button>
+    </div>
+    <div style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:12px;color:#5b6778">
+      <strong>Pasos rápidos:</strong><br>
+      1) Pulsa <b>Crear copia JSON</b> y guarda el archivo.<br>
+      2) Si pierdes datos o reinstalas móvil/navegador, abre esta app y usa <b>Restaurar copia</b>.<br>
+      3) Selecciona el archivo y confirma la importación.<br>
+      4) El backup restaura inventario, historial y PIN.
+    </div>
+  </div>
+</div>
+
 </div><!-- /content -->
 
 <!-- ══════════ MODALES ══════════ -->
@@ -668,6 +718,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
     </div>
     <div class="form-group"><label>Ubicación</label><input id="t-loc" placeholder="Ej: Almacén A - Estante 3"></div>
     <div class="form-group"><label>Descripción</label><input id="t-desc" placeholder="Detalles adicionales"></div>
+    <div class="form-group"><label>Foto (opcional)</label><input id="t-photo" type="file" accept="image/*"></div>
     <button class="btn btn-primary btn-full" onclick="saveTool()">💾 Guardar Material</button>
   </div>
 </div>
@@ -723,6 +774,24 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
     <div id="return-content"></div>
   </div>
 </div>
+
+<!-- ═══════════════ MODAL IMPORTAR BACKUP ═══════════════ -->
+<div class="modal" id="modal-import">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span>📥 Importar backup</span>
+      <button class="modal-close" onclick="closeModal('modal-import')">✕</button>
+    </div>
+    <div id="importInfo" style="font-size:13px;color:#6b7280;margin-bottom:10px">Selecciona un archivo <b>.json</b> exportado desde IsiVoltPro (compatible con copias antiguas y nuevas).</div>
+    <input id="importFile" type="file" accept="application/json" style="width:100%;padding:11px;border-radius:10px;border:2px solid #e2e8f0;background:#fff"/>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-import')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="importBackupJSON()">Importar</button>
+    </div>
+  </div>
+</div>
+
+<input id="photo-update-input" type="file" accept="image/*" style="display:none" onchange="applyToolPhotoFromPicker(event)">
 
 <script>
 // ── MODALES: abrir/cerrar ───────────────────────────────────────────────────
@@ -788,7 +857,15 @@ function switchTab(name, btn){
   if(name==='tools')     renderTools();
   if(name==='workers')   renderWorkers();
   if(name==='history')   renderHistory();
+  if(name==='settings')  renderSettings();
   if(name==='scan')      resetTecnicoFlow();
+}
+
+function openSettingsSecurity(){
+  const btn=[...document.querySelectorAll('.tab')].find(b=>b.textContent.includes('Ajustes'));
+  switchTab('settings', btn||null);
+  const securityCard=document.querySelector('#tab-settings .card');
+  if(securityCard) securityCard.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 // ════════════════════════════════
@@ -1409,12 +1486,15 @@ function renderTools(){
         ${t.category?`<span class="tag tag-cat">${t.category}</span>`:''}
         ${t.location?`<span>📍 ${t.location}</span>`:''}
       </div>
-      ${w?`<div style="font-size:13px;color:#e74c3c;font-weight:600;margin-bottom:6px">👷 ${w.name}</div>`:''}
+      ${w?`<div style=\"font-size:13px;color:#e74c3c;font-weight:600;margin-bottom:6px\">👷 ${w.name}</div>`:''}
+      <div class="tool-photo-wrap">${t.photo ? `<img class="tool-photo" src="${t.photo}" alt="Foto de ${t.name}" loading="lazy">` : '<div class="tool-photo-empty">📷 Sin foto</div>'}</div>
       <div class="action-row">
         <button class="btn btn-ghost btn-sm" onclick="showQR('tool','${t.id}')">📱 QR</button>
         ${t.status==='available'
           ?`<button class="btn btn-danger btn-sm" onclick="openMovementModal(tools.find(x=>x.id==='${t.id}'))">📤 Prestar</button>`
           :`<button class="btn btn-success btn-sm" onclick="doCheckin('${t.id}')">📥 Devolver</button>`}
+        <button class="btn btn-ghost btn-sm" onclick="promptToolPhoto('${t.id}')">📷 Foto</button>
+        ${t.photo?`<button class="btn btn-ghost btn-sm" onclick="removeToolPhoto('${t.id}')">🧹 Quitar foto</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="deleteTool('${t.id}')">🗑️</button>
       </div>
     </div>`;
@@ -1431,20 +1511,60 @@ function quickFilterTools(mode){
 }
 
 function openAddTool(){ document.getElementById('modal-tool').classList.add('active'); }
-function saveTool(){
+async function saveTool(){
   const name=document.getElementById('t-name').value.trim();
   const code=document.getElementById('t-code').value.trim();
   if(!name||!code){ showNotif('Nombre y Código son obligatorios','error'); return; }
-  tools.push({id:'t'+Date.now(),name,code,category:document.getElementById('t-cat').value,location:document.getElementById('t-loc').value.trim(),description:document.getElementById('t-desc').value.trim(),status:'available',assignedTo:null});
+  const photoFile = document.getElementById('t-photo')?.files?.[0] || null;
+  let photo='';
+  if(photoFile){
+    try{ photo = await fileToDataURL(photoFile); }
+    catch(e){ showNotif('No se pudo leer la foto seleccionada','warning','⚠️'); }
+  }
+  tools.push({id:'t'+Date.now(),name,code,category:document.getElementById('t-cat').value,location:document.getElementById('t-loc').value.trim(),description:document.getElementById('t-desc').value.trim(),photo,status:'available',assignedTo:null});
   save(); closeModal('modal-tool'); renderTools(); renderDashboard();
-  ['t-name','t-code','t-loc','t-desc'].forEach(id=>document.getElementById(id).value='');
+  ['t-name','t-code','t-loc','t-desc','t-photo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('t-cat').value='';
   playSound('save');
-  showNotif('Material añadido al inventario','success','📦','Disponible para asignar');
+  showNotif('Material añadido al inventario','success','📦',photo?'Foto guardada correctamente':'Disponible para asignar');
 }
 function deleteTool(id){
   if(!confirm('¿Eliminar este material?')) return;
   tools=tools.filter(t=>t.id!==id); save(); renderTools(); renderDashboard();
+}
+
+
+function promptToolPhoto(toolId){
+  const input=document.getElementById('photo-update-input');
+  if(!input) return;
+  input.dataset.toolId=toolId;
+  input.value='';
+  input.click();
+}
+
+async function applyToolPhotoFromPicker(ev){
+  const input=ev.target;
+  const file=input?.files?.[0];
+  const toolId=input?.dataset?.toolId;
+  if(!file || !toolId) return;
+  const tool=tools.find(t=>t.id===toolId);
+  if(!tool){ showNotif('Material no encontrado','error'); return; }
+  try{
+    tool.photo = await fileToDataURL(file);
+    save(); renderTools(); renderDashboard();
+    showNotif('Foto de material actualizada','success','📷');
+  }catch(e){
+    showNotif('No se pudo actualizar la foto','error','❌');
+  }
+}
+
+function removeToolPhoto(toolId){
+  const tool=tools.find(t=>t.id===toolId);
+  if(!tool) return;
+  if(!tool.photo){ showNotif('Este material no tiene foto','warning'); return; }
+  tool.photo='';
+  save(); renderTools(); renderDashboard();
+  showNotif('Foto eliminada','info','🧹');
 }
 
 // ════════════════════════════════
@@ -1686,19 +1806,6 @@ function printQR(){
         <div class="code">⚡ IsiVolt Pro</div>
       </div>
       
-<!-- ═══════════════ MODAL IMPORTAR BACKUP ═══════════════ -->
-<div class="modal" id="modal-import">
-  <div class="modal-card">
-    <div class="modal-title">📥 Importar backup</div>
-    <div class="modal-sub" id="importInfo">Selecciona un archivo <b>.json</b> exportado desde IsiVoltPro.</div>
-    <input id="importFile" type="file" accept="application/json" style="margin-top:12px;width:100%;padding:12px;border-radius:12px;border:1px solid #e5e7eb;background:#fff"/>
-    <div style="display:flex;gap:10px;margin-top:12px">
-      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-import')">Cancelar</button>
-      <button class="btn btn-primary" style="flex:1" onclick="importBackupJSON()">Importar</button>
-    </div>
-  </div>
-</div>
-
 <script>setTimeout(()=>window.print(),250);<\/script>
     </body></html>
   `);
@@ -2065,11 +2172,50 @@ function initSplash(){
 // ════════════════════════════════
 // BACKUP / RESTAURAR / DESHACER
 // ════════════════════════════════
+function saveAll(){
+  save();
+  try{ localStorage.setItem('isivolt_settings', JSON.stringify(getSettings())); }catch(e){}
+}
+
+function fileToDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(fr.result||'');
+    fr.onerror = ()=>reject(new Error('No se pudo procesar el archivo'));
+    fr.readAsDataURL(file);
+  });
+}
+
+function renderSettings(){
+  ['set-pin-current','set-pin-new','set-pin-confirm'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+}
+
+function changeAppPin(){
+  const current=(document.getElementById('set-pin-current')?.value||'').replace(/\D/g,'').slice(0,8);
+  const next=(document.getElementById('set-pin-new')?.value||'').replace(/\D/g,'').slice(0,8);
+  const confirmPin=(document.getElementById('set-pin-confirm')?.value||'').replace(/\D/g,'').slice(0,8);
+  const settings=getSettings();
+
+  if(current !== String(settings.appPin)){ showNotif('El PIN actual no coincide','error','❌'); return; }
+  if(next.length < 4){ showNotif('El nuevo PIN debe tener mínimo 4 números','warning','⚠️'); return; }
+  if(next !== confirmPin){ showNotif('La confirmación del PIN no coincide','warning','⚠️'); return; }
+  if(next === String(settings.appPin)){ showNotif('El nuevo PIN debe ser diferente al actual','warning','⚠️'); return; }
+
+  settings.appPin = next;
+  localStorage.setItem('isivolt_settings', JSON.stringify(settings));
+  renderSettings();
+  showNotif('PIN actualizado correctamente','success','🔐','Usa el nuevo PIN en el próximo acceso');
+}
+
 function exportBackupJSON(){
   const payload = {
     app: 'IsiVoltPro',
     version: '1.2.0',
     exportedAt: new Date().toISOString(),
+    settings: getSettings(),
     tools, workers, history
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -2079,13 +2225,13 @@ function exportBackupJSON(){
   a.href = URL.createObjectURL(blob);
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  showNotif('Backup JSON descargado','success','⬇️','Guárdalo para restaurar en cualquier momento');
+  showNotif('Copia JSON descargada','success','⬇️','Guárdala en la nube para restaurar la app si se borra');
 }
 
 function openImportModal(){
   document.getElementById('modal-import').classList.add('active');
   document.getElementById('importFile').value='';
-  document.getElementById('importInfo').innerHTML='Selecciona un archivo <b>.json</b> exportado desde IsiVoltPro.';
+  document.getElementById('importInfo').innerHTML='Selecciona un archivo <b>.json</b> exportado desde IsiVoltPro (compatible con copias antiguas y nuevas).';
 }
 
 async function importBackupJSON(){
@@ -2095,16 +2241,19 @@ async function importBackupJSON(){
   try{
     const text = await file.text();
     const payload = JSON.parse(text);
-    if(!payload || !payload.tools || !payload.workers || !payload.history){
+    if(!payload || !Array.isArray(payload.tools) || !Array.isArray(payload.workers) || !Array.isArray(payload.history)){
       throw new Error('Formato de backup no válido');
     }
     tools = payload.tools;
     workers = payload.workers;
     history = payload.history;
+    if(payload.settings && typeof payload.settings==='object'){
+      localStorage.setItem('isivolt_settings', JSON.stringify(payload.settings));
+    }
     saveAll();
     renderDashboard(); renderTools(); renderWorkers(); renderHistory();
     closeModal('modal-import');
-    showNotif('Backup restaurado','success','✅','Datos cargados correctamente');
+    showNotif('Copia restaurada correctamente','success','✅','Inventario, historial y PIN recuperados');
   }catch(e){
     showNotif('No se pudo importar el backup','error','❌', e?.message || 'Error desconocido');
   }

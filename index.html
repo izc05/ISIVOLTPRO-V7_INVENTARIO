@@ -1682,9 +1682,10 @@ async function ensureJSQRLoaded(){
   for(const url of cdns){
     const ok = await new Promise((resolve)=>{
       const s=document.createElement('script');
+      const timer=setTimeout(()=>resolve(false), 4000);
       s.src=url;
-      s.onload=()=>resolve(!!window.jsQR);
-      s.onerror=()=>resolve(false);
+      s.onload=()=>{ clearTimeout(timer); resolve(!!window.jsQR); };
+      s.onerror=()=>{ clearTimeout(timer); resolve(false); };
       document.head.appendChild(s);
     });
     if(ok) return true;
@@ -2572,7 +2573,9 @@ function promptGoogle(){
 
 
 (async ()=>{
-  await ensureCoreLibs();
+  // No bloqueamos el render inicial por CDNs externas.
+  // Si jsQR tarda o falla, la app principal igualmente abre.
+  ensureCoreLibs();
   renderDashboard();
   // precargar listados para evitar pantallas vacías al cambiar de pestaña
   if(typeof renderTools==='function') renderTools();

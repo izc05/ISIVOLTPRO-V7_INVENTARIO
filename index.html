@@ -631,9 +631,10 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
     <input type="date" id="filter-from" onchange="renderHistory()" style="flex:1;padding:9px;border:2px solid #e0e8f0;border-radius:8px;font-size:13px">
     <input type="date" id="filter-to" onchange="renderHistory()" style="flex:1;padding:9px;border:2px solid #e0e8f0;border-radius:8px;font-size:13px">
   </div>
-  <div style="display:flex;gap:8px;margin-bottom:14px">
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <button class="btn btn-primary" style="flex:1" onclick="exportExcel()">📊 Excel</button>
     <button class="btn btn-ghost" style="flex:1" onclick="exportCSV()">📄 CSV</button>
+    <button class="btn btn-success" style="flex:1" onclick="openImportModal()">♻️ Recuperar</button>
   </div>
   <div id="history-stats" class="card" style="margin-bottom:14px"></div>
   <div id="history-list"></div>
@@ -1827,7 +1828,7 @@ function printQR(){
 // EXPORTAR
 // ════════════════════════════════
 function exportExcel(){
-  if(!history.length){ showNotif('No hay datos para exportar','error'); return; }
+  if(!tools.length && !workers.length && !history.length){ showNotif('No hay datos para exportar','error'); return; }
   if(typeof XLSX==='undefined'){
     showNotif('Cargando Excel...','success');
     const s=document.createElement('script');
@@ -1948,7 +1949,7 @@ function exportExcel(){
 
   XLSX.writeFile(wb,`IsivoltPro_${fh.replace(/\//g,'-')}.xlsx`);
   playSound('save');
-  showNotif(`Excel descargado: ${history.length} movimientos`,'success','📊','5 hojas · Listo para abrir');
+  showNotif(`Excel descargado: ${tools.length} materiales y ${history.length} movimientos`,'success','📊','5 hojas · Listo para abrir');
 }
 
 function exportCSV(){

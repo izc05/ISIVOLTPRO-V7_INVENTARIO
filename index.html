@@ -645,6 +645,15 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
 <!-- ═══════════════ AJUSTES ═══════════════ -->
 <div id="tab-settings" class="tab-content">
   <div class="card">
+    <div class="card-title">📲 Instalar app</div>
+    <div style="font-size:13px;color:#586174;line-height:1.45;margin-bottom:12px">
+      Instala IsiVoltPro para usarla como app en el móvil y tener acceso rápido desde la pantalla de inicio.
+    </div>
+    <button id="btnInstallSettings" class="btn btn-primary" style="width:100%;justify-content:center">📲 Instalar ahora</button>
+    <div id="installHint" style="font-size:12px;color:#5b6778;margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px"></div>
+  </div>
+
+  <div class="card">
     <div class="card-title">🔐 Seguridad</div>
     <div class="settings-grid">
       <div class="form-group">
@@ -2526,81 +2535,69 @@ function promptGoogle(){
 
 // ── PWA (instalable) ───────────────────────────────────────────────────────
 (function(){
-  try{
-    // Manifest dinámico (sin archivos extra)
-    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e3c72"/><stop offset="1" stop-color="#2a5298"/></linearGradient></defs><rect width="512" height="512" rx="110" fill="url(#g)"/><text x="50%" y="56%" text-anchor="middle" font-size="260" font-family="Arial" fill="#fff">⚡</text></svg>`;
-    const iconData = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgIcon);
+  let deferredInstallPrompt = null;
+  const btnHeader = document.getElementById('btnInstall');
+  const btnSettings = document.getElementById('btnInstallSettings');
+  const hint = document.getElementById('installHint');
 
-    const manifest = {
-      name: "IsiVoltPro",
-      short_name: "IsiVoltPro",
-      start_url: "./",
-      scope: "./",
-      display: "standalone",
-      background_color: "#0b1a33",
-      theme_color: "#1e3c72",
-      icons: [
-        { src: iconData, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
-      ]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
-    const manifestURL = URL.createObjectURL(manifestBlob);
-    const link = document.createElement("link");
-    link.rel = "manifest";
-    link.href = manifestURL;
-    link.id = "isivolt_manifest";
-    document.head.appendChild(link);
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-    // Service Worker en blob (cache básico offline)
-    if("serviceWorker" in navigator){
-      const swCode = `
-        const CACHE = "isivoltpro-cache-v1";
-        self.addEventListener("install", (e)=>{
-          e.waitUntil((async ()=>{
-            const cache = await caches.open(CACHE);
-            // cachea la página principal
-            await cache.addAll(["./"]);
-            self.skipWaiting();
-          })());
-        });
-        self.addEventListener("activate", (e)=>{
-          e.waitUntil((async ()=>{
-            const keys = await caches.keys();
-            await Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)));
-            self.clients.claim();
-          })());
-        });
-        self.addEventListener("fetch", (e)=>{
-          const req = e.request;
-          // Solo GET
-          if(req.method!=="GET") return;
-          e.respondWith((async ()=>{
-            const cache = await caches.open(CACHE);
-            const cached = await cache.match(req, {ignoreSearch:true});
-            if(cached) return cached;
-            try{
-              const fresh = await fetch(req);
-              // cachear recursos same-origin y CDNs usados (mejora offline)
-              try{
-                const ok = fresh && fresh.status===200;
-                if(ok){
-                  await cache.put(req, fresh.clone());
-                }
-              }catch(_){}
-              return fresh;
-            }catch(err){
-              // fallback a raíz
-              const fallback = await cache.match("./");
-              return fallback || new Response("Offline", {status:200, headers:{"Content-Type":"text/plain"}});
-            }
-          })());
-        });
-      `;
-      const swBlob = new Blob([swCode], {type:"text/javascript"});
-      const swURL = URL.createObjectURL(swBlob);
-      navigator.serviceWorker.register(swURL, {scope:"./"}).catch(()=>{});
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  }
+
+  function updateInstallState(){
+    if(isStandalone()){
+      if(btnHeader) btnHeader.style.display = 'none';
+      if(btnSettings) btnSettings.style.display = 'none';
+      if(hint) hint.textContent = '✅ La app ya está instalada en este dispositivo.';
+      return;
     }
-  }catch(e){}
+    if(isIos){
+      if(btnHeader) btnHeader.style.display = 'none';
+      if(hint) hint.innerHTML = 'En iPhone/iPad: pulsa <b>Compartir</b> y luego <b>Añadir a pantalla de inicio</b>.';
+      return;
+    }
+    if(hint) hint.textContent = 'Si no aparece el aviso, abre la app por HTTPS y úsala unos segundos para que el navegador habilite la instalación.';
+  }
+
+  async function requestInstall(){
+    if(isIos){
+      alert('En iPhone/iPad debes usar Compartir → Añadir a pantalla de inicio.');
+      return;
+    }
+    if(!deferredInstallPrompt){
+      if(hint) hint.textContent = 'Todavía no hay aviso de instalación. Recarga la página e inténtalo de nuevo en unos segundos.';
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    if(btnHeader) btnHeader.style.display = 'none';
+  }
+
+  [btnHeader, btnSettings].forEach((btn)=>{
+    if(btn) btn.addEventListener('click', requestInstall);
+  });
+
+  window.addEventListener('beforeinstallprompt', (event)=>{
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if(btnHeader) btnHeader.style.display = 'inline-flex';
+    if(hint) hint.textContent = '✅ Tu dispositivo permite instalar la app. Pulsa “Instalar ahora”.';
+  });
+
+  window.addEventListener('appinstalled', ()=>{
+    if(btnHeader) btnHeader.style.display = 'none';
+    if(btnSettings) btnSettings.style.display = 'none';
+    if(hint) hint.textContent = '✅ Instalación completada.';
+  });
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+
+  updateInstallState();
 })();
 
 (async ()=>{

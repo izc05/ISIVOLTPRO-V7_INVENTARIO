@@ -2488,6 +2488,42 @@ function promptGoogle(){
   }
 }
 
+
+(function(){
+  const installBtn = document.getElementById("btnInstall");
+  if(!installBtn) return;
+
+  let deferredInstallEvent = null;
+
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault();
+    deferredInstallEvent = e;
+    installBtn.style.display = "inline-flex";
+  });
+
+  installBtn.addEventListener("click", async ()=>{
+    try{
+      if(!deferredInstallEvent){
+        showNotif('La instalación no está disponible en este navegador todavía.','warning','⚠️');
+        return;
+      }
+      deferredInstallEvent.prompt();
+      await deferredInstallEvent.userChoice;
+    }catch(_){
+      showNotif('No se pudo abrir el instalador.','error','❌');
+    }finally{
+      deferredInstallEvent = null;
+      installBtn.style.display = "none";
+    }
+  });
+
+  window.addEventListener("appinstalled", ()=>{
+    deferredInstallEvent = null;
+    installBtn.style.display = "none";
+    showNotif('App instalada correctamente','success','✅');
+  });
+})();
+
 // ── PWA (instalable) ───────────────────────────────────────────────────────
 (function(){
   try{

@@ -364,6 +364,7 @@ video{width:100%;max-width:400px;border-radius:12px;display:none;margin:12px aut
 <div style="margin:10px 0;opacity:.75;font-size:12px">o</div>
 <div id="gBtn" style="display:flex;justify-content:center"></div>
 <button id="googleLoginBtn" class="auth-btn" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22)" onclick="promptGoogle()">Entrar con Google</button>
+<button id="btnInstallAuth" class="auth-btn" style="display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22)">📲 Instalar app</button>
     <div id="pinMsg" class="auth-msg"></div>
 
     <div class="auth-hint">
@@ -2497,47 +2498,12 @@ function promptGoogle(){
   }
 }
 
-
-(function(){
-  const installBtn = document.getElementById("btnInstall");
-  if(!installBtn) return;
-
-  let deferredInstallEvent = null;
-
-  window.addEventListener("beforeinstallprompt", (e)=>{
-    e.preventDefault();
-    deferredInstallEvent = e;
-    installBtn.style.display = "inline-flex";
-  });
-
-  installBtn.addEventListener("click", async ()=>{
-    try{
-      if(!deferredInstallEvent){
-        showNotif('La instalación no está disponible en este navegador todavía.','warning','⚠️');
-        return;
-      }
-      deferredInstallEvent.prompt();
-      await deferredInstallEvent.userChoice;
-    }catch(_){
-      showNotif('No se pudo abrir el instalador.','error','❌');
-    }finally{
-      deferredInstallEvent = null;
-      installBtn.style.display = "none";
-    }
-  });
-
-  window.addEventListener("appinstalled", ()=>{
-    deferredInstallEvent = null;
-    installBtn.style.display = "none";
-    showNotif('App instalada correctamente','success','✅');
-  });
-})();
-
 // ── PWA (instalable) ───────────────────────────────────────────────────────
 (function(){
   let deferredInstallPrompt = null;
   const btnHeader = document.getElementById('btnInstall');
   const btnSettings = document.getElementById('btnInstallSettings');
+  const btnAuth = document.getElementById('btnInstallAuth');
   const hint = document.getElementById('installHint');
 
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -2548,16 +2514,17 @@ function promptGoogle(){
 
   function updateInstallState(){
     if(isStandalone()){
-      if(btnHeader) btnHeader.style.display = 'none';
-      if(btnSettings) btnSettings.style.display = 'none';
+      [btnHeader, btnSettings, btnAuth].forEach((btn)=>{ if(btn) btn.style.display='none'; });
       if(hint) hint.textContent = '✅ La app ya está instalada en este dispositivo.';
       return;
     }
     if(isIos){
       if(btnHeader) btnHeader.style.display = 'none';
+      if(btnAuth) btnAuth.style.display = 'inline-flex';
       if(hint) hint.innerHTML = 'En iPhone/iPad: pulsa <b>Compartir</b> y luego <b>Añadir a pantalla de inicio</b>.';
       return;
     }
+    if(btnAuth) btnAuth.style.display = 'inline-flex';
     if(hint) hint.textContent = 'Si no aparece el aviso, abre la app por HTTPS y úsala unos segundos para que el navegador habilite la instalación.';
   }
 
@@ -2576,7 +2543,7 @@ function promptGoogle(){
     if(btnHeader) btnHeader.style.display = 'none';
   }
 
-  [btnHeader, btnSettings].forEach((btn)=>{
+  [btnHeader, btnSettings, btnAuth].forEach((btn)=>{
     if(btn) btn.addEventListener('click', requestInstall);
   });
 
@@ -2584,13 +2551,15 @@ function promptGoogle(){
     event.preventDefault();
     deferredInstallPrompt = event;
     if(btnHeader) btnHeader.style.display = 'inline-flex';
+    if(btnAuth) btnAuth.style.display = 'inline-flex';
+    if(btnSettings) btnSettings.style.display = 'inline-flex';
     if(hint) hint.textContent = '✅ Tu dispositivo permite instalar la app. Pulsa “Instalar ahora”.';
   });
 
   window.addEventListener('appinstalled', ()=>{
-    if(btnHeader) btnHeader.style.display = 'none';
-    if(btnSettings) btnSettings.style.display = 'none';
+    [btnHeader, btnSettings, btnAuth].forEach((btn)=>{ if(btn) btn.style.display='none'; });
     if(hint) hint.textContent = '✅ Instalación completada.';
+    showNotif('App instalada correctamente','success','✅');
   });
 
   if('serviceWorker' in navigator){
